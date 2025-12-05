@@ -8,6 +8,7 @@ import os
 
 # ---------------- FLASK CONFIG ---------------- #
 app = Flask(__name__)
+# Use environment variable on server, or 'dev' for local testing
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev_secret_key")
 socketio = SocketIO(app)
 
@@ -68,13 +69,20 @@ def handle_join(data):
     roomcode = data.get("roomcode")
     username = data.get("username")
 
+    # --- FIX FOR PHANTOM PLAYERS ---
+    # Reject connections that don't have a valid username
+    if not username or username == 'null':
+        emit("error", {"msg": "Username required to join."})
+        return
+    # -----------------------------
+
     if roomcode not in ROOMS:
         emit("error", {"msg": "Room not found"})
         return
 
     room = ROOMS[roomcode]
     player = room.add_player(username)
-    player.sid = request.sid
+    player.sid = request.sid  # Save session ID for private messages
 
     join_room(roomcode)
     # Broadcast new state to everyone in the room so they see the new player
@@ -167,6 +175,14 @@ def handle_end_turn(data):
     if roomcode in ROOMS:
         ROOMS[roomcode].end_turn()
         emit("state_update", ROOMS[roomcode].get_public_state(), to=roomcode)
+
+
+@socketio.on("disconnect")
+def handle_disconnect():
+    """
+    Handles player disconnection.
+    """
+    pass
 
 
 if __name__ == "__main__":
