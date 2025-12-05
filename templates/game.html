@@ -92,7 +92,7 @@
                 <div class="score" id="final-score-2"></div>
             </div>
         </div>
-        <a href="/" style="color: white; text-decoration: underline;">Back to Menu</a>
+        <a href="/" onclick="redirectToHome(event)">Back to Menu</a>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
@@ -100,12 +100,34 @@
         const socket = io();
         const roomcode = "{{ roomcode }}";
 
+        // Use Jinja to get the correct root path from Flask
+        // This placement and quoting is the standard best practice.
+        const ROOT_PATH = "{{ url_for('index') }}";
+
+        // Function to handle safe redirection to the home page
+        function redirectToHome(event) {
+             if (event) event.preventDefault();
+             window.location.href = ROOT_PATH;
+        }
+
         const params = new URLSearchParams(window.location.search);
         let username = params.get("username");
-        if (!username) username = prompt("Enter your username:");
+
+        // Ensure username is not 'null' or 'undefined' if it gets stripped by some redirects/reloads
+        if (!username || username === 'null' || username === 'undefined') {
+            username = prompt("Enter your username:");
+            // If the user cancels the prompt, kick them back to the index page using the safe function.
+            if (!username) {
+                redirectToHome();
+            }
+        }
+
         document.getElementById("my-username").innerText = username;
 
-        socket.emit("join_game", {roomcode: roomcode, username: username});
+        // Only emit join_game if a valid username exists
+        if (username) {
+             socket.emit("join_game", {roomcode: roomcode, username: username});
+        }
 
         let myTeam = null;
         let timerInterval = null;
@@ -171,7 +193,6 @@
             else if (info.clue_giver === username) {
                 containerGiver.classList.remove("hidden");
 
-                // *** UPDATED: PASS AUTO-END CALLBACK ***
                 startTimer(info.time_remaining, () => {
                     // This runs when the timer hits 0
                     console.log("Timer ended, sending end_turn");
@@ -203,7 +224,6 @@
             }
         }
 
-        // *** UPDATED STARTTIMER FUNCTION ***
         function startTimer(secondsLeft, onComplete) {
             const display = document.getElementById("timer-display");
             display.classList.remove("hidden");
@@ -225,7 +245,6 @@
                 if(diff <= 0) {
                     display.innerText = "TIME'S UP!";
                     clearInterval(timerInterval);
-                    // *** TRIGGER CALLBACK IF PROVIDED ***
                     if (onComplete) onComplete();
                 } else {
                     display.innerText = diff;
@@ -310,6 +329,7 @@
         });
 
         document.getElementById("btn-start-game").onclick = () => {
+             // We need to send username so server checks if we are host
              socket.emit("start_game", {roomcode: roomcode, username: username});
         };
 

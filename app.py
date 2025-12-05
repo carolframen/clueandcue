@@ -51,6 +51,8 @@ def handle_create(data):
     Adds the creator as the first player.
     """
     username = data.get("username")
+    print(f"[DEBUG] Creating room for user: {username}")  # LOG
+
     import random, string
     roomcode = ''.join(random.choices(string.ascii_uppercase, k=4))
 
@@ -69,9 +71,12 @@ def handle_join(data):
     roomcode = data.get("roomcode")
     username = data.get("username")
 
+    print(f"[DEBUG] Join attempt: User='{username}' Room='{roomcode}'")  # LOG
+
     # --- FIX FOR PHANTOM PLAYERS ---
-    # Reject connections that don't have a valid username
-    if not username or username == 'null':
+    # We explicitly check for None, empty string, 'null', or 'undefined'
+    if not username or username == 'null' or username == 'undefined':
+        print(f"[BLOCKING PHANTOM] Rejected connection with username: {username}")  # LOG
         emit("error", {"msg": "Username required to join."})
         return
     # -----------------------------
@@ -82,7 +87,7 @@ def handle_join(data):
 
     room = ROOMS[roomcode]
     player = room.add_player(username)
-    player.sid = request.sid  # Save session ID for private messages
+    player.sid = request.sid
 
     join_room(roomcode)
     # Broadcast new state to everyone in the room so they see the new player
@@ -107,9 +112,7 @@ def handle_start(data):
 
         success, msg = room.start_selection_phase()
         if success:
-            # 1. Update public state (Phase change)
             emit("state_update", room.get_public_state(), to=roomcode)
-            # 2. Privately deal 8 cards to each player
             for p in room.players:
                 if p.sid:
                     socketio.emit("deal_hand", p.initial_cards, room=p.sid)
