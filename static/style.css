@@ -181,3 +181,20 @@ button:active {
     .container { display: block; width: auto; margin: 20px auto; max-width: 350px;}
     .teams-container { flex-direction: column; }
 }
+
+/* --- Lobby/Safety Overlay --- */
+/* This covers the screen until the user explicitly clicks "Join" */
+#lobby-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(17, 24, 39, 0.95); /* Dark background matching Tailwind gray-900 */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 50;
+    transition: opacity 0.3s ease;
+}

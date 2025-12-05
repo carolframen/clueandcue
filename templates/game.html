@@ -3,119 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Room</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
-    <style>
-        /* Simple styling for the overlay */
-        #lobby-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            z-index: 9999;
-        }
-        .hidden {
-            display: none !important;
-        }
-        button {
-            padding: 15px 30px;
-            font-size: 1.2em;
-            cursor: pointer;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-        }
-    </style>
-</head>
-<body>
+    <title>Clue & Cue - Room</title>
 
-    <!-- 1. The Safety Lobby Overlay -->
+    <!-- Link to external stylesheet -->
+    <link rel="stylesheet" href="/static/style.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
+    <!-- Tailwind CSS for quick, nice styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col">
+
+    <!-- 1. SAFETY OVERLAY (Stops the Phantom User) -->
     <div id="lobby-overlay">
-        <h1>Ready to Play?</h1>
-        <p>Room: <span id="display-room"></span></p>
-        <p>User: <span id="display-user"></span></p>
-        <br>
-        <button id="btn-join-game">Join Game</button>
+        <div class="bg-white p-8 rounded-lg shadow-2xl text-center max-w-md w-full">
+            <h1 class="text-3xl font-bold mb-4 text-gray-800">Ready to Play?</h1>
+
+            <div class="mb-6 text-left bg-gray-50 p-4 rounded border">
+                <p class="text-gray-600"><strong>Room:</strong> <span id="overlay-room" class="font-mono text-blue-600">...</span></p>
+                <p class="text-gray-600"><strong>User:</strong> <span id="overlay-user" class="font-mono text-green-600">...</span></p>
+            </div>
+
+            <button id="btn-join-game" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded transition duration-200 transform hover:scale-105">
+                Join Game Room
+            </button>
+        </div>
     </div>
 
-    <!-- 2. Main Game UI (Hidden initially/behind overlay) -->
-    <div id="game-container">
-        <h1>Room: {{ room_id }}</h1>
-        <div id="status">Status: Disconnected</div>
-        <ul id="log"></ul>
+    <!-- 2. MAIN GAME UI (Hidden behind overlay initially) -->
+    <div id="game-ui" class="flex-1 flex flex-col md:flex-row overflow-hidden">
+
+        <!-- Left Panel: Game Board / Status -->
+        <div class="flex-1 p-4 flex flex-col">
+            <header class="mb-4 flex justify-between items-center bg-white p-4 rounded shadow">
+                <div>
+                    <h2 class="text-xl font-bold">Room: <span id="ui-room"></span></h2>
+                    <div id="connection-status" class="text-sm text-yellow-600">Waiting to join...</div>
+                </div>
+                <div class="text-right">
+                    <span class="text-sm text-gray-500">Player:</span>
+                    <span id="ui-user" class="font-bold"></span>
+                </div>
+            </header>
+
+            <!-- Game Area Placeholder -->
+            <main class="flex-1 bg-white rounded shadow p-6 relative flex items-center justify-center border-2 border-dashed border-gray-300">
+                <div class="text-center text-gray-400">
+                    <!-- PASTE YOUR SPECIFIC GAME BOARD HTML HERE IF YOU HAVE IT -->
+                    <h3 class="text-2xl font-bold mb-2">Game Board Area</h3>
+                    <p>Waiting for game data...</p>
+                </div>
+            </main>
+        </div>
+
+        <!-- Right Panel: Logs / Chat -->
+        <div class="w-full md:w-80 bg-gray-800 text-white flex flex-col p-4">
+            <h3 class="font-bold mb-2 border-b border-gray-600 pb-2">Game Log</h3>
+            <ul id="log-list" class="flex-1 overflow-y-auto space-y-1 text-sm font-mono mb-4">
+                <!-- Logs go here -->
+            </ul>
+
+            <div class="mt-auto">
+                 <input type="text" id="chat-input" placeholder="Type a message..." class="w-full p-2 rounded text-black" disabled>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Extract params from URL logic (matches your current setup)
+        // --- 1. CONFIGURATION ---
+        // Get params from URL and Path
         const urlParams = new URLSearchParams(window.location.search);
-        const username = urlParams.get('username') || 'Anonymous';
-        // Flask templating usually puts room_id in the URL path, but we can grab it from path or template
-        // Assuming path is /game/<room_id>
-        const pathParts = window.location.pathname.split('/');
-        const roomId = pathParts[pathParts.length - 1] || 'default';
+        const username = urlParams.get('username') || 'Guest';
+        // Extract Room ID safely from the URL path (last segment)
+        const pathSegments = window.location.pathname.split('/');
+        const roomId = pathSegments[pathSegments.length - 1] || 'default_room';
 
-        // Update Overlay Text
-        document.getElementById('display-room').textContent = roomId;
-        document.getElementById('display-user').textContent = username;
+        // Update UI Text
+        document.getElementById('overlay-room').textContent = roomId;
+        document.getElementById('overlay-user').textContent = username;
+        document.getElementById('ui-room').textContent = roomId;
+        document.getElementById('ui-user').textContent = username;
 
-        // --- CRITICAL FIX: Do not auto-connect ---
-        // We initialize the socket object, but set autoConnect to false.
-        const socket = io({
-            autoConnect: false
-        });
+        // --- 2. SOCKET SETUP (Manual Connection) ---
+        // autoConnect: false is the KEY to fixing the phantom user
+        const socket = io({ autoConnect: false });
 
-        const statusDiv = document.getElementById('status');
-        const logList = document.getElementById('log');
+        const logList = document.getElementById('log-list');
+        const statusDiv = document.getElementById('connection-status');
 
-        function addLog(message) {
+        function addLog(msg, color = 'text-gray-300') {
             const li = document.createElement('li');
-            li.textContent = message;
+            li.textContent = `> ${msg}`;
+            li.className = color;
             logList.appendChild(li);
+            logList.scrollTop = logList.scrollHeight; // Auto-scroll
         }
 
-        // --- Event Listener for the Join Button ---
+        // --- 3. INTERACTION ---
         document.getElementById('btn-join-game').addEventListener('click', () => {
-            // 1. Remove the overlay
+            // Hide Overlay
             document.getElementById('lobby-overlay').classList.add('hidden');
 
-            // 2. Manually connect the socket
+            // Start Connection
+            addLog("Initializing connection...", "text-yellow-400");
             socket.connect();
-            addLog("Connecting to server...");
         });
 
-        // --- Socket Events ---
-
+        // --- 4. SOCKET EVENTS ---
         socket.on('connect', () => {
-            statusDiv.textContent = "Status: Connected";
-            addLog("Connected! Joining room...");
+            statusDiv.textContent = "Connected";
+            statusDiv.className = "text-sm text-green-600 font-bold";
+            addLog("Connected to server.", "text-green-400");
 
-            // 3. Emit the join event ONLY after connection
-            socket.emit('join', {
-                username: username,
-                room: roomId
-            });
+            // Emit Join
+            addLog(`Joining room ${roomId} as ${username}...`);
+            socket.emit('join', { username: username, room: roomId });
+
+            // Enable chat
+            document.getElementById('chat-input').disabled = false;
         });
 
         socket.on('disconnect', () => {
-            statusDiv.textContent = "Status: Disconnected";
-            addLog("Disconnected from server.");
+            statusDiv.textContent = "Disconnected";
+            statusDiv.className = "text-sm text-red-600 font-bold";
+            addLog("Disconnected from server.", "text-red-500");
         });
 
-        // Example: Listen for other users joining
+        // Listen for standard message events
         socket.on('message', (data) => {
-            addLog(data.msg || JSON.stringify(data));
+            // Handle both object messages and string messages
+            const msg = (typeof data === 'object') ? (data.msg || JSON.stringify(data)) : data;
+            addLog(msg);
         });
 
-        // Listen for existing game data if your server sends it
+        // Listen for specific game updates (Customize this based on your Python backend)
         socket.on('game_state', (data) => {
-            console.log("Game state received", data);
-            // Update your UI here
+            addLog("Game State Update Received", "text-blue-400");
+            console.log("Game State:", data);
+            // TODO: Add logic here to update the Board UI based on 'data'
+        });
+
+        // Debug: Listen for ANY event (Wildcard debugging)
+        socket.onAny((event, ...args) => {
+            console.log(`[DEBUG] Event: ${event}`, args);
         });
 
     </script>
