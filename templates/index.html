@@ -2,11 +2,55 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Clue and Cue</title>
+    <title>Clue & Cue</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Link to the new external stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <a href="/add_username">Play</a> <br>
-    <a href="/rules">Rules</a>
+    <h1>Clue & Cue</h1>
 
+    <div class="container">
+        <h3>Create a New Room</h3>
+        <input type="text" id="create-username" placeholder="Your Nickname" autocomplete="off">
+        <button onclick="createRoom()">Create Room</button>
+    </div>
+
+    <div class="container">
+        <h3>Join Existing Room</h3>
+        <input type="text" id="join-username" placeholder="Your Nickname" autocomplete="off">
+        <input type="text" id="room-code-input" placeholder="Room Code (e.g. ABCD)" style="text-transform: uppercase;">
+        <button onclick="joinRoom()">Join Room</button>
+    </div>
+
+    <br><br>
+
+    <!-- Link to Rules Page -->
+    <a href="/rules" style="font-size: 1.2em; color: rgba(255,255,255,0.7);">How to Play?</a>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        function createRoom() {
+            const username = document.getElementById("create-username").value.trim();
+            if(!username) { alert("Please enter a username!"); return; }
+            socket.emit("create_room", {username: username});
+        }
+
+        socket.on("room_created", (data) => {
+            const username = document.getElementById("create-username").value.trim();
+            window.location.href = `/game/${data.roomcode}?username=${encodeURIComponent(username)}`;
+        });
+
+        function joinRoom() {
+            const username = document.getElementById("join-username").value.trim();
+            const code = document.getElementById("room-code-input").value.trim().toUpperCase();
+
+            if(!username || !code) { alert("Please enter both username and room code!"); return; }
+            window.location.href = `/game/${code}?username=${encodeURIComponent(username)}`;
+        }
+    </script>
 </body>
 </html>

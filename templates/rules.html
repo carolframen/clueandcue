@@ -2,12 +2,49 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Clue and Cue: Rules</title>
+    <title>Clue & Cue: Rules</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Rules</h1>
-    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus eu convallis mauris. Duis consectetur elit ac suscipit pretium. In turpis mauris, dignissim ut ultricies quis, iaculis id lorem. Nullam nisl ex, luctus sit amet nisi eget, fermentum ullamcorper risus. Nam interdum vehicula lacinia. Suspendisse aliquam dolor ac volutpat finibus. Donec porta mi sit amet dolor venenatis, at iaculis orci ullamcorper. Sed mattis et est a luctus.</p>
-    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus eu convallis mauris. Duis consectetur elit ac suscipit pretium. In turpis mauris, dignissim ut ultricies quis, iaculis id lorem. Nullam nisl ex, luctus sit amet nisi eget, fermentum ullamcorper risus. Nam interdum vehicula lacinia. Suspendisse aliquam dolor ac volutpat finibus. Donec porta mi sit amet dolor venenatis, at iaculis orci ullamcorper. Sed mattis et est a luctus.</p>
-    <a href="/">Back to Menu</a>
+    <h1>How to Play</h1>
+
+    <div class="container rules-content" style="max-width: 700px;">
+        <h3>Phase 1: Setup</h3>
+        <ul>
+            <li>Join a room with at least 4 players.</li>
+            <li>Players are split into <strong>Team 1</strong> and <strong>Team 2</strong>.</li>
+            <li>Everyone receives 8 cards and must choose their best 5 to create the Game Deck.</li>
+        </ul>
+
+        <h3>Phase 2: The Rounds</h3>
+        <p>There are 3 rounds. The same deck of cards is reused for each round!</p>
+
+        <h4>Round 1: Charades</h4>
+        <ul>
+            <li>You can say anything <strong>EXCEPT</strong> the word on the card.</li>
+            <li>No skipping allowed!</li>
+        </ul>
+
+        <h4>Round 2: One Word</h4>
+        <ul>
+            <li>You can only say <strong>ONE WORD</strong> as a clue.</li>
+            <li>You may skip cards if stuck.</li>
+        </ul>
+
+        <h4>Round 3: Mime & Sounds</h4>
+        <ul>
+            <li>No words allowed! Only gestures and sound effects.</li>
+            <li>You may skip cards.</li>
+        </ul>
+
+        <h3>Winning</h3>
+        <p>The team with the most points after Round 3 wins!</p>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="/">Back to Menu</a>
+        </div>
+    </div>
 </body>
 </html>
