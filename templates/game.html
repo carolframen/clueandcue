@@ -2,152 +2,358 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clue & Cue - Room</title>
-
-    <!-- Link to external stylesheet -->
-    <link rel="stylesheet" href="/static/style.css">
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
-    <!-- Tailwind CSS for quick, nice styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Clue & Cue</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body class="bg-gray-100 h-screen flex flex-col">
+<body>
 
-    <!-- 1. SAFETY OVERLAY (Stops the Phantom User) -->
-    <div id="lobby-overlay">
-        <div class="bg-white p-8 rounded-lg shadow-2xl text-center max-w-md w-full">
-            <h1 class="text-3xl font-bold mb-4 text-gray-800">Ready to Play?</h1>
-
-            <div class="mb-6 text-left bg-gray-50 p-4 rounded border">
-                <p class="text-gray-600"><strong>Room:</strong> <span id="overlay-room" class="font-mono text-blue-600">...</span></p>
-                <p class="text-gray-600"><strong>User:</strong> <span id="overlay-user" class="font-mono text-green-600">...</span></p>
-            </div>
-
-            <button id="btn-join-game" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded transition duration-200 transform hover:scale-105">
-                Join Game Room
-            </button>
+    <!-- --- Anti-Ghost Overlay (ADDED) --- -->
+    <div id="ghost-prevention-overlay">
+        <div class="overlay-content">
+            <h2 style="color: #333;">Ready to Enter?</h2>
+            <p style="color: #666;">Click below to join the room.</p>
+            <button id="btn-start-connection">Join Game</button>
         </div>
     </div>
 
-    <!-- 2. MAIN GAME UI (Hidden behind overlay initially) -->
-    <div id="game-ui" class="flex-1 flex flex-col md:flex-row overflow-hidden">
+    <h1 style="color: var(--accent-color);">Clue & Cue</h1>
+    <div style="opacity: 0.7;">Room: <strong>{{ roomcode }}</strong> | Player: <strong id="my-username"></strong></div>
 
-        <!-- Left Panel: Game Board / Status -->
-        <div class="flex-1 p-4 flex flex-col">
-            <header class="mb-4 flex justify-between items-center bg-white p-4 rounded shadow">
-                <div>
-                    <h2 class="text-xl font-bold">Room: <span id="ui-room"></span></h2>
-                    <div id="connection-status" class="text-sm text-yellow-600">Waiting to join...</div>
-                </div>
-                <div class="text-right">
-                    <span class="text-sm text-gray-500">Player:</span>
-                    <span id="ui-user" class="font-bold"></span>
-                </div>
-            </header>
+    <!-- 1. LOBBY VIEW -->
+    <div id="view-lobby" class="game-phase">
+        <h2>Lobby</h2>
+        <ul id="player-list"></ul>
+        <div id="host-controls" class="hidden">
+            <p>You are the Host.</p>
+            <button id="btn-start-game">Start Game</button>
+        </div>
+        <p id="msg-waiting-host" class="hidden">Waiting for host to start...</p>
+    </div>
 
-            <!-- Game Area Placeholder -->
-            <main class="flex-1 bg-white rounded shadow p-6 relative flex items-center justify-center border-2 border-dashed border-gray-300">
-                <div class="text-center text-gray-400">
-                    <!-- PASTE YOUR SPECIFIC GAME BOARD HTML HERE IF YOU HAVE IT -->
-                    <h3 class="text-2xl font-bold mb-2">Game Board Area</h3>
-                    <p>Waiting for game data...</p>
-                </div>
-            </main>
+    <!-- 2. SELECTION VIEW -->
+    <div id="view-selection" class="game-phase hidden">
+        <h2>Pick 5 Cards</h2>
+        <p>Select the cards you want to put in the deck.</p>
+        <div id="hand-container"></div>
+        <br>
+        <button id="btn-submit-hand">Submit Selection</button>
+        <p id="waiting-msg" class="hidden">Waiting for others...</p>
+    </div>
+
+    <!-- 3. GAMEPLAY VIEW -->
+    <div id="view-game" class="game-phase hidden">
+        <h2 id="round-title" style="text-transform: uppercase; letter-spacing: 2px;">Round 1</h2>
+
+        <div class="teams-container">
+            <div class="team-box team-1">
+                <h3>Team 1</h3>
+                <div class="score" id="score-1">0</div>
+                <ul id="list-team-1" style="list-style: none; padding: 0; font-size: 0.9em; opacity: 0.8;"></ul>
+            </div>
+            <div class="team-box team-2">
+                <h3>Team 2</h3>
+                <div class="score" id="score-2">0</div>
+                <ul id="list-team-2" style="list-style: none; padding: 0; font-size: 0.9em; opacity: 0.8;"></ul>
+            </div>
         </div>
 
-        <!-- Right Panel: Logs / Chat -->
-        <div class="w-full md:w-80 bg-gray-800 text-white flex flex-col p-4">
-            <h3 class="font-bold mb-2 border-b border-gray-600 pb-2">Game Log</h3>
-            <ul id="log-list" class="flex-1 overflow-y-auto space-y-1 text-sm font-mono mb-4">
-                <!-- Logs go here -->
-            </ul>
+        <div id="timer-display" class="hidden">30</div>
 
-            <div class="mt-auto">
-                 <input type="text" id="chat-input" placeholder="Type a message..." class="w-full p-2 rounded text-black" disabled>
+        <!-- Logic Containers -->
+        <div id="container-chooser" class="hidden">
+            <h3 style="color: #f1c40f;">👑 You are the Captain!</h3>
+            <p>Tap a teammate to give clues:</p>
+            <div id="teammate-buttons"></div>
+        </div>
+
+        <div id="container-giver" class="hidden">
+            <div class="big-card">
+                <h2 style="margin:0; font-size: 1.2em; opacity: 0.6;">Your Word</h2>
+                <h1 style="font-size: 2.5em; margin: 10px 0; color: #333;" id="card-display">CARD</h1>
+                <p style="background: #eee; display: inline-block; padding: 5px 10px; border-radius: 5px; font-size: 0.9em;">Type: <span id="card-type"></span></p>
             </div>
+            <div class="action-btn-group">
+                <button class="btn-guess" onclick="sendAction('action_guess')">✅ Got it!</button>
+                <button class="btn-skip" onclick="sendAction('action_skip')">⏭ Skip</button>
+                <button class="btn-end" onclick="sendAction('end_turn')">🛑 End Turn</button>
+            </div>
+        </div>
+
+        <div id="container-watcher" class="hidden">
+            <h3 id="watcher-headline">...</h3>
+            <div id="watcher-subtext" style="font-size: 1.5em; margin-top: 20px;">...</div>
         </div>
     </div>
 
+    <!-- 4. GAME OVER VIEW -->
+    <div id="view-finished" class="game-phase hidden">
+        <h1>GAME OVER!</h1>
+        <div id="final-result"></div>
+        <div class="teams-container" style="margin-top: 30px;">
+            <div class="team-box team-1">
+                <h3>Team 1 Final</h3>
+                <div class="score" id="final-score-1"></div>
+            </div>
+            <div class="team-box team-2">
+                <h3>Team 2 Final</h3>
+                <div class="score" id="final-score-2"></div>
+            </div>
+        </div>
+        <a href="/">Back to Menu</a>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
-        // --- 1. CONFIGURATION ---
-        // Get params from URL and Path
-        const urlParams = new URLSearchParams(window.location.search);
-        const username = urlParams.get('username') || 'Guest';
-        // Extract Room ID safely from the URL path (last segment)
-        const pathSegments = window.location.pathname.split('/');
-        const roomId = pathSegments[pathSegments.length - 1] || 'default_room';
-
-        // Update UI Text
-        document.getElementById('overlay-room').textContent = roomId;
-        document.getElementById('overlay-user').textContent = username;
-        document.getElementById('ui-room').textContent = roomId;
-        document.getElementById('ui-user').textContent = username;
-
-        // --- 2. SOCKET SETUP (Manual Connection) ---
-        // autoConnect: false is the KEY to fixing the phantom user
+        // --- 1. DISABLE AUTO CONNECT (Fix for Phantom User) ---
         const socket = io({ autoConnect: false });
 
-        const logList = document.getElementById('log-list');
-        const statusDiv = document.getElementById('connection-status');
+        const roomcode = "{{ roomcode }}";
 
-        function addLog(msg, color = 'text-gray-300') {
-            const li = document.createElement('li');
-            li.textContent = `> ${msg}`;
-            li.className = color;
-            logList.appendChild(li);
-            logList.scrollTop = logList.scrollHeight; // Auto-scroll
+        const params = new URLSearchParams(window.location.search);
+        let username = params.get("username");
+
+        if (!username || username === 'null' || username === 'undefined') {
+            username = prompt("Enter your username:");
+            if (!username) {
+                window.location.href = window.location.origin;
+            }
         }
 
-        // --- 3. INTERACTION ---
-        document.getElementById('btn-join-game').addEventListener('click', () => {
-            // Hide Overlay
-            document.getElementById('lobby-overlay').classList.add('hidden');
+        if (username) {
+            document.getElementById("my-username").innerText = username;
+            // Note: We do NOT emit join_game here anymore. We wait for connection.
+        }
 
-            // Start Connection
-            addLog("Initializing connection...", "text-yellow-400");
+        // --- 2. MANUAL CONNECT HANDLER ---
+        document.getElementById('btn-start-connection').addEventListener('click', () => {
+            document.getElementById('ghost-prevention-overlay').style.display = 'none';
             socket.connect();
         });
 
-        // --- 4. SOCKET EVENTS ---
+        // --- 3. SOCKET EVENTS ---
         socket.on('connect', () => {
-            statusDiv.textContent = "Connected";
-            statusDiv.className = "text-sm text-green-600 font-bold";
-            addLog("Connected to server.", "text-green-400");
-
-            // Emit Join
-            addLog(`Joining room ${roomId} as ${username}...`);
-            socket.emit('join', { username: username, room: roomId });
-
-            // Enable chat
-            document.getElementById('chat-input').disabled = false;
+            console.log("Connected to server!");
+            // Emit join ONLY after actual connection
+            if (username && roomcode) {
+                socket.emit("join_game", {roomcode: roomcode, username: username});
+            }
         });
 
-        socket.on('disconnect', () => {
-            statusDiv.textContent = "Disconnected";
-            statusDiv.className = "text-sm text-red-600 font-bold";
-            addLog("Disconnected from server.", "text-red-500");
+        let myTeam = null;
+        let timerInterval = null;
+
+        socket.on("state_update", (state) => {
+            console.log("State:", state);
+            renderLobby(state.players, state.host);
+
+            const me = state.players.find(p => p.user === username);
+            if(me) myTeam = me.team;
+
+            renderTeamLists(state.players);
+            updateScores(state.scores);
+
+            document.querySelectorAll('.game-phase').forEach(el => el.classList.add('hidden'));
+
+            if(state.state === "LOBBY") {
+                document.getElementById("view-lobby").classList.remove("hidden");
+                // HOST LOGIC
+                if (state.host === username) {
+                    document.getElementById("host-controls").classList.remove("hidden");
+                    document.getElementById("msg-waiting-host").classList.add("hidden");
+                } else {
+                    document.getElementById("host-controls").classList.add("hidden");
+                    document.getElementById("msg-waiting-host").classList.remove("hidden");
+                }
+            }
+            else if(state.state === "SELECTION") {
+                document.getElementById("view-selection").classList.remove("hidden");
+            }
+            else if(state.state.includes("ROUND")) {
+                document.getElementById("view-game").classList.remove("hidden");
+                document.getElementById("round-title").innerText = state.state.replace("_", " ");
+                handleGameLogic(state);
+            }
+            else if(state.state === "FINISHED") {
+                document.getElementById("view-finished").classList.remove("hidden");
+                handleGameOver(state);
+            }
         });
 
-        // Listen for standard message events
-        socket.on('message', (data) => {
-            // Handle both object messages and string messages
-            const msg = (typeof data === 'object') ? (data.msg || JSON.stringify(data)) : data;
-            addLog(msg);
+        function handleGameLogic(state) {
+            const info = state.round_info;
+            const containerChooser = document.getElementById("container-chooser");
+            const containerGiver = document.getElementById("container-giver");
+            const containerWatcher = document.getElementById("container-watcher");
+            const timerDisplay = document.getElementById("timer-display");
+
+            containerChooser.classList.add("hidden");
+            containerGiver.classList.add("hidden");
+            containerWatcher.classList.add("hidden");
+            timerDisplay.classList.add("hidden");
+
+            // Clear old timer
+            if(timerInterval) clearInterval(timerInterval);
+
+            // 1. Captain Phase (Choosing who gives clues)
+            if (info.captain_chooser === username && !info.clue_giver) {
+                containerChooser.classList.remove("hidden");
+                renderTeammatesForCaptain(state.players);
+            }
+            // 2. Clue Giver Phase (Timer Active)
+            else if (info.clue_giver === username) {
+                containerGiver.classList.remove("hidden");
+
+                startTimer(info.time_remaining, () => {
+                    // This runs when the timer hits 0
+                    console.log("Timer ended, sending end_turn");
+                    sendAction('end_turn');
+                });
+
+                if(info.card) {
+                    document.getElementById("card-display").innerText = info.card.name;
+                    document.getElementById("card-type").innerText = info.card.type;
+                }
+            }
+            // 3. Watcher Phase (Timer Active)
+            else if (info.clue_giver) {
+                containerWatcher.classList.remove("hidden");
+
+                // Watchers just see the timer, they don't trigger the action
+                startTimer(info.time_remaining);
+
+                document.getElementById("watcher-headline").innerText = `${info.clue_giver} is giving clues!`;
+
+                const subtext = document.getElementById("watcher-subtext");
+                if (myTeam === info.clue_giver_team) {
+                    subtext.innerText = "GUESS THE WORD! 🗣️";
+                    subtext.style.color = "#2ecc71"; // Green
+                } else {
+                    subtext.innerText = "Shhh! Stay silent. 🤫";
+                    subtext.style.color = "#95a5a6"; // Gray
+                }
+            }
+        }
+
+        function startTimer(secondsLeft, onComplete) {
+            const display = document.getElementById("timer-display");
+            display.classList.remove("hidden");
+
+            if (secondsLeft === undefined || secondsLeft === null || secondsLeft <= 0) {
+                display.innerText = "0";
+                return;
+            }
+
+            const now = Date.now();
+            const targetTime = now + (secondsLeft * 1000);
+
+            display.innerText = Math.ceil(secondsLeft);
+
+            timerInterval = setInterval(() => {
+                const currentNow = Date.now();
+                const diff = Math.ceil((targetTime - currentNow) / 1000);
+
+                if(diff <= 0) {
+                    display.innerText = "TIME'S UP!";
+                    clearInterval(timerInterval);
+                    if (onComplete) onComplete();
+                } else {
+                    display.innerText = diff;
+                }
+            }, 500);
+        }
+
+        function renderLobby(players, host) {
+            const list = document.getElementById("player-list");
+            list.innerHTML = "";
+            players.forEach(p => {
+                const isHost = p.user === host ? " (HOST)" : "";
+                const isReady = p.has_selected ? " ✅" : "";
+                const li = document.createElement("li");
+                li.innerText = `${p.user}${isHost}${isReady}`;
+                list.appendChild(li);
+            });
+        }
+
+        function renderTeamLists(players) {
+            const t1 = document.getElementById("list-team-1");
+            const t2 = document.getElementById("list-team-2");
+            t1.innerHTML = ""; t2.innerHTML = "";
+            players.forEach(p => {
+                const li = document.createElement("li");
+                li.innerText = p.user;
+                if(p.team === 1) t1.appendChild(li);
+                else if(p.team === 2) t2.appendChild(li);
+            });
+        }
+
+        function updateScores(scores) {
+            document.getElementById("score-1").innerText = scores["1"];
+            document.getElementById("score-2").innerText = scores["2"];
+        }
+
+        function renderTeammatesForCaptain(players) {
+            const buttonsDiv = document.getElementById("teammate-buttons");
+            buttonsDiv.innerHTML = "";
+            players.forEach(p => {
+                if(p.team === myTeam) {
+                    const btn = document.createElement("button");
+                    btn.innerText = p.user;
+                    btn.onclick = () => socket.emit("select_giver", {roomcode: roomcode, target_user: p.user});
+                    buttonsDiv.appendChild(btn);
+                }
+            });
+        }
+
+        function handleGameOver(state) {
+            const s1 = state.scores["1"];
+            const s2 = state.scores["2"];
+            document.getElementById("final-score-1").innerText = s1;
+            document.getElementById("final-score-2").innerText = s2;
+            const res = document.getElementById("final-result");
+
+            if (s1 > s2) res.innerHTML = "<h2 style='color:#ff6b6b'>TEAM 1 WINS! 🏆</h2>";
+            else if (s2 > s1) res.innerHTML = "<h2 style='color:#4ecdc4'>TEAM 2 WINS! 🏆</h2>";
+            else res.innerHTML = "<h2>IT'S A TIE!</h2>";
+        }
+
+        // Selection
+        let selectedIndices = new Set();
+        socket.on("deal_hand", (cards) => {
+            const container = document.getElementById("hand-container");
+            container.innerHTML = "";
+            cards.forEach((card, index) => {
+                const div = document.createElement("div");
+                div.className = "card-select";
+                div.innerHTML = `<div>${card.name}</div><div style='font-size:0.8em; opacity:0.6'>${card.type}</div>`;
+                div.onclick = () => {
+                    if(selectedIndices.has(index)) {
+                        selectedIndices.delete(index);
+                        div.classList.remove("selected");
+                    } else if(selectedIndices.size < 5) {
+                        selectedIndices.add(index);
+                        div.classList.add("selected");
+                    }
+                };
+                container.appendChild(div);
+            });
         });
 
-        // Listen for specific game updates (Customize this based on your Python backend)
-        socket.on('game_state', (data) => {
-            addLog("Game State Update Received", "text-blue-400");
-            console.log("Game State:", data);
-            // TODO: Add logic here to update the Board UI based on 'data'
-        });
+        document.getElementById("btn-start-game").onclick = () => {
+             // We need to send username so server checks if we are host
+             socket.emit("start_game", {roomcode: roomcode, username: username});
+        };
 
-        // Debug: Listen for ANY event (Wildcard debugging)
-        socket.onAny((event, ...args) => {
-            console.log(`[DEBUG] Event: ${event}`, args);
-        });
+        document.getElementById("btn-submit-hand").onclick = () => {
+            if(selectedIndices.size !== 5) { alert("Select 5 cards!"); return; }
+            socket.emit("submit_cards", {roomcode: roomcode, username: username, indices: Array.from(selectedIndices)});
+            document.getElementById("btn-submit-hand").classList.add("hidden");
+            document.getElementById("waiting-msg").classList.remove("hidden");
+        };
 
+        function sendAction(action) { socket.emit(action, {roomcode: roomcode}); }
+        socket.on("error", (d) => alert(d.msg));
     </script>
 </body>
 </html>
