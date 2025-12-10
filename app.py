@@ -169,6 +169,18 @@ def handle_skip(data):
         emit("state_update", ROOMS[roomcode].get_public_state(), to=roomcode)
 
 
+@socketio.on("action_taboo")
+def handle_taboo(data):
+    """
+    The Clue Giver marks the current clue as illegal/taboo.
+    Burns the card and gives a point to the opposing team.
+    """
+    roomcode = data.get("roomcode")
+    if roomcode in ROOMS:
+        ROOMS[roomcode].taboo_guess()
+        emit("state_update", ROOMS[roomcode].get_public_state(), to=roomcode)
+
+
 @socketio.on("end_turn")
 def handle_end_turn(data):
     """

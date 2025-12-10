@@ -11,6 +11,7 @@
     --success-color: #2ecc71;
     --warning-color: #f1c40f;
     --danger-color: #e74c3c;
+    --taboo-color: #34495e; /* Dark for 'Illegal' */
 }
 
 body {
@@ -166,6 +167,7 @@ button:active {
 .btn-guess { background-color: var(--success-color); }
 .btn-skip { background-color: var(--warning-color); color: black; }
 .btn-end { background-color: var(--danger-color); }
+.btn-taboo { background-color: var(--taboo-color); color: white; }
 
 /* --- Rules Page Specific --- */
 .rules-content {

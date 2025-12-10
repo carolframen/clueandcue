@@ -9,7 +9,7 @@
 </head>
 <body>
 
-    <!-- --- Anti-Ghost Overlay (ADDED) --- -->
+    <!-- Anti-Ghost Overlay -->
     <div id="ghost-prevention-overlay">
         <div class="overlay-content">
             <h2 style="color: #333;">Ready to Enter?</h2>
@@ -77,6 +77,8 @@
             <div class="action-btn-group">
                 <button class="btn-guess" onclick="sendAction('action_guess')">✅ Got it!</button>
                 <button class="btn-skip" onclick="sendAction('action_skip')">⏭ Skip</button>
+
+                <button class="btn-taboo" onclick="sendAction('action_taboo')">🚫 Illegal</button>
                 <button class="btn-end" onclick="sendAction('end_turn')">🛑 End Turn</button>
             </div>
         </div>
@@ -106,7 +108,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
-        // --- 1. DISABLE AUTO CONNECT (Fix for Phantom User) ---
         const socket = io({ autoConnect: false });
 
         const roomcode = "{{ roomcode }}";
@@ -123,19 +124,15 @@
 
         if (username) {
             document.getElementById("my-username").innerText = username;
-            // Note: We do NOT emit join_game here anymore. We wait for connection.
         }
 
-        // --- 2. MANUAL CONNECT HANDLER ---
         document.getElementById('btn-start-connection').addEventListener('click', () => {
             document.getElementById('ghost-prevention-overlay').style.display = 'none';
             socket.connect();
         });
 
-        // --- 3. SOCKET EVENTS ---
         socket.on('connect', () => {
             console.log("Connected to server!");
-            // Emit join ONLY after actual connection
             if (username && roomcode) {
                 socket.emit("join_game", {roomcode: roomcode, username: username});
             }
@@ -204,6 +201,14 @@
             // 2. Clue Giver Phase (Timer Active)
             else if (info.clue_giver === username) {
                 containerGiver.classList.remove("hidden");
+
+                // Logic to hide skip button in Round 1
+                const skipBtn = document.querySelector('.btn-skip');
+                if (state.state === 'ROUND_1') {
+                    skipBtn.classList.add('hidden');
+                } else {
+                    skipBtn.classList.remove('hidden');
+                }
 
                 startTimer(info.time_remaining, () => {
                     // This runs when the timer hits 0

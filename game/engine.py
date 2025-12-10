@@ -209,8 +209,42 @@ class Room:
         deck.append(card)
         self.card_in_play = deck[0]
 
+    def taboo_guess(self):
+        """
+        Logic for 'Illegal' clue.
+        - Burns the card (removes from play for this round).
+        - Awards point to OPPOSING team.
+        """
+        if self.turn_end_timestamp > 0 and time.time() > self.turn_end_timestamp + 1:
+            return
+
+        deck = self._get_current_deck()
+        if not deck: return
+
+        # Remove card from deck
+        deck.pop(0)
+
+        # Give point to the other team
+        if self.current_clue_giver.team == 1:
+            self.team_two_score += 1  # Point for Team 2
+        else:
+            self.team_one_score += 1  # Point for Team 1
+
+        # Next Card or End Round
+        if deck:
+            self.card_in_play = deck[0]
+        else:
+            self.end_round()
+
     def end_turn(self):
         """Clean up after time runs out or turn is ended."""
+        # Send the current card to the end of the deck
+        deck = self._get_current_deck()
+        if deck:
+            card = deck.pop(0)
+            deck.append(card)
+
+        # Reset variables for next turn
         self.current_clue_giver = None
         self.card_in_play = None
         self.turn_end_timestamp = 0
